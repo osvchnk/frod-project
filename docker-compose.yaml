@@ -1,0 +1,128 @@
+services:
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5435:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "max_wal_senders=10"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - app-net
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8082:8080
+    networks:
+      - app-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.15
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - app-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.2.15
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    networks:
+      - app-net
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.1.0
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:29092  # Connects to Kafka's internal listener
+    depends_on:
+      - kafka
+    networks:
+      - app-net
+
+  connect:
+    image: debezium/connect:3.0.0.Final
+    ports:
+      - 8083:8083
+      - 5005:5005
+      - 8778:8778
+    environment:
+      - BOOTSTRAP_SERVERS=kafka:29092
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+    networks:
+      - app-net
+
+
+  debezium-ui:
+    image: debezium/debezium-ui:latest
+    ports:
+      - 8090:8080
+    environment:
+      - KAFKA_CONNECT_URIS=http://connect:8083
+    depends_on:
+      - connect
+    networks:
+      - app-net
+
+  spark-master:
+    image: bitnami/spark:4.0.0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"  # Spark master web UI
+      - "7077:7077"  # Spark master port
+    networks:
+      - app-net
+
+  spark-worker:
+    image: bitnami/spark:4.0.0
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"  # Spark worker web UI
+    networks:
+      - app-net
+
+volumes:
+  pg_data:
+
+networks:
+  app-net:
