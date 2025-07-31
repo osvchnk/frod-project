@@ -8,12 +8,16 @@ pip install -r requirements.txt
 ```
 
 ## Docker
-
+build necessary Docker images defined in docker-compose.yml 
+```
+docker compose build
+```
+start  containers in detached mode
 ```
 docker compose up -d
 ```
 
-## Debezium 
+## Debezium
 show connectors
 ```
 curl -H "Accept:application/json" localhost:8083/connectors/
