@@ -26,7 +26,7 @@ services:
     image: adminer
     restart: always
     ports:
-      - 8082:8080
+      - 8081:8080
     networks:
       - app-net
 
@@ -92,7 +92,7 @@ services:
       - app-net
 
   spark-master:
-    image: bitnami/spark:4.0.0
+    image: bitnami/spark:3.5.0
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -106,18 +106,64 @@ services:
     networks:
       - app-net
 
-  spark-worker:
-    image: bitnami/spark:4.0.0
-    container_name: spark-worker
+  spark-worker-1:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-1
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
     depends_on:
       - spark-master
     ports:
-      - "8081:8081"  # Spark worker web UI
+      - "8091:8081"  # Spark worker web UI
+    networks:
+      - app-net
+
+  spark-worker-2:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8092:8081"
+    networks:
+      - app-net
+
+  spark-worker-3:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8093:8081"
+    networks:
+      - app-net
+
+  spark-worker-4:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-4
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8094:8081"
+    networks:
+      - app-net
+
+  pyspark-app:
+    build: ./pyspark-app
+    volumes:
+      - ./pyspark-app:/app
+    depends_on:
+      - spark-master
     networks:
       - app-net
 
