@@ -56,7 +56,7 @@ services:
     image: obsidiandynamics/kafdrop:4.1.0
     container_name: kafdrop
     ports:
-      - "9000:9000"
+      - "9090:9000"
     environment:
       KAFKA_BROKERCONNECT: kafka:29092  # Connects to Kafka's internal listener
     depends_on:
@@ -100,6 +100,7 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000
     ports:
       - "8080:8080"  # Spark master web UI
       - "7077:7077"  # Spark master port
@@ -112,6 +113,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000
     depends_on:
       - spark-master
     ports:
@@ -125,6 +127,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000
     depends_on:
       - spark-master
     ports:
@@ -138,6 +141,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000
     depends_on:
       - spark-master
     ports:
@@ -151,6 +155,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000
     depends_on:
       - spark-master
     ports:
@@ -167,8 +172,58 @@ services:
     networks:
       - app-net
 
+  namenode:
+    image: apache/hadoop:3
+    hostname: namenode
+    container_name: namenode
+    command: [ "hdfs", "namenode" ]
+    ports:
+      - 9870:9870     # NameNode web UI
+      - 9000:9000     # HDFS RPC
+    environment:
+      - ENSURE_NAMENODE_DIR=/tmp/hadoop-root/dfs/name
+    volumes:
+      - ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./configs/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./configs/entrypoint.sh:/entrypoint.sh
+      - namenode_data:/tmp/hadoop-root/dfs/name
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    networks:
+      - app-net
+
+  datanode1:
+    image: apache/hadoop:3
+    hostname: datanode1
+    container_name: datanode1
+    command: [ "hdfs", "datanode" ]
+    volumes:
+      - ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./configs/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - datanode1_data:/tmp/hadoop-root/dfs/data
+    networks:
+      - app-net
+    depends_on:
+      - namenode
+
+  datanode2:
+    image: apache/hadoop:3
+    hostname: datanode2
+    container_name: datanode2
+    command: [ "hdfs", "datanode" ]
+    volumes:
+      - ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./configs/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - datanode2_data:/tmp/hadoop-root/dfs/data
+    networks:
+      - app-net
+    depends_on:
+      - namenode
+
 volumes:
   pg_data:
+  namenode_data:
+  datanode1_data:
+  datanode2_data:
 
 networks:
   app-net:
